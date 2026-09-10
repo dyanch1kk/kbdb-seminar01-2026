@@ -149,6 +149,16 @@ group by s.name, e.severity;
 -- Ожидается: 5 агрегатов. Если у вас 6 — вы не учли регистр в severity.
 -- ---------------------------------------------------------------------
 -- Задача 7
+select id
+from 
+(select distinct u.id, count(u.id) filter (where lower(e.severity) in ('alarm', 'unplanned_stop')) as cnt
+from unit u 
+left join event e on u.id = e.unit_id
+group by u.id) t
+where cnt = 0
+order by id;
+
+
 
 
 
@@ -158,12 +168,28 @@ group by s.name, e.severity;
 
 -- Задача 8*. Последнее измерение каждого датчика (17 строк)
 -- Задача 8*
+select sensor_id, ts, value
+from (select t.sensor_id, t.ts, t.value,
+    row_number() over (partition by s.id, s.kind order by t.ts desc) as num
+from telemetry t
+left join sensor s on t.sensor_id = s.id) t
+where num = 1
+order by sensor_id, ts;
 
 
 
 -- Задача 9*. Часы, где средняя температура TE-302 выросла > 5 °C к предыдущему часу
 -- Ожидается: 12:00 и 13:00
 -- Задача 9*
+select date_part('hour', hour)
+from (select hour, mean, mean - lag(mean) over (order by hour) as diff
+from (select distinct date_trunc('hour', ts) as hour, avg(t.value) as mean
+from telemetry t
+left join sensor s on t.sensor_id = s.id
+where s.tag = 'TE-302'
+group by hour) t) t2
+where diff > 5
+
 
 
 
