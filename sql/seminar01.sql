@@ -10,13 +10,50 @@ set timezone = 'Europe/Moscow';
 -- ---------------------------------------------------------------------
 -- Часть 2.2. Осмотритесь — запишите ответы прямо здесь, в комментариях
 -- ---------------------------------------------------------------------
--- Строк в таблицах:        station __  unit __  sensor __  telemetry _____  event __  maintenance __
--- Период телеметрии:       с __________________ по __________________
--- Значения sensor.kind:    ...
--- Значения event.severity: ...   (что в них подозрительного?)
--- Датчики без измерений:   ...
--- Агрегаты без датчиков:   ...
--- «Грязная» запись в maintenance (id и что не так): ...
+-- Строк в таблицах:        
+-- ...station 3  unit 7  sensor 18  telemetry 24462  event 26  maintenance 11
+select 'station' as name, count(*) from station
+union ALL
+select 'unit', count(*) from unit
+union ALL
+select 'sensor', count(*) from sensor
+union ALL
+select 'telemetry', count(*) from telemetry
+union ALL
+select 'event', count(*) from event
+union ALL
+select 'maintenance', count(*) from maintenance;
+
+-- Период телеметрии:       с 2026-09-01 21:00:00+00 по 2026-09-02 21:00:00+00
+select min(ts), max(ts) from telemetry;
+-- Значения sensor.kind:   чистые
+select distinct kind
+from sensor;
+-- Значения event.severity: 
+-- есть одни и те же слова с разными регистрами
+-- пробелы в названиях
+-- и просто неправильно названнык
+select distinct severity as uniq, length(severity)
+from event;
+-- Датчики без измерений:  5-ый  
+select s.id
+from sensor s 
+left join telemetry t 
+on s.id = t.sensor_id
+where t.sensor_id is null;
+-- Агрегаты без датчиков:   GPA-4
+select u.id
+from unit u
+left join sensor s
+on u.id = s.unit_id
+where s.unit_id is null;
+-- «Грязная» запись в maintenance (id и что не так): 
+--у id = 2 фамилия с маленькой и нет имени и отчества
+-- у id = 3 только первая буква имени
+-- у id IN (3, 6, 9, 10) пустые ячейки в столбце parts,
+-- а у id = 2 прошло числом 6312 что-то написано непонятно что
+select *
+from maintenance;
 
 
 
@@ -36,6 +73,11 @@ order  by s.name, u.id;
 -- Ожидается: 7 строк; GPA-1 → 5, GPA-4 → 0
 -- ---------------------------------------------------------------------
 -- Задача 2
+select u.id, count(s.id)
+from unit u
+left join sensor s
+on u.id = s.unit_id
+group by u.id;
 
 
 
@@ -44,7 +86,13 @@ order  by s.name, u.id;
 -- Ожидается: 4 строки; GPA-2 → 66.1
 -- ---------------------------------------------------------------------
 -- Задача 3
-
+select DISTINCT unit_id as name, avg(value)
+from sensor s
+left join telemetry t
+on s.id = t.sensor_id
+where kind = 'temp'
+group by name
+order by name;
 
 
 -- ---------------------------------------------------------------------
@@ -52,7 +100,15 @@ order  by s.name, u.id;
 -- Ожидается: 1 строка — TE-302 (GPA-2), ~88.3
 -- ---------------------------------------------------------------------
 -- Задача 4
-
+select *
+from (select DISTINCT tag, max(value) as maximum
+from sensor s
+left join telemetry t
+on s.id = t.sensor_id
+where kind = 'temp'
+group by tag)
+where maximum > 85
+order by tag;
 
 
 -- ---------------------------------------------------------------------
@@ -60,6 +116,14 @@ order  by s.name, u.id;
 -- Ожидается: 25 строк; 11:00 → 73.4, 13:00 → 83.8, 14:00 → 85.5
 -- ---------------------------------------------------------------------
 -- Задача 5
+select DATE_PART('hour', ts)  as hour, round(avg(value), 1)
+from sensor s
+left join telemetry t
+on s.id = t.sensor_id
+where kind = 'temp' and unit_id = 'GPA-2'
+group by hour
+order by hour;
+
 
 
 
@@ -68,6 +132,15 @@ order  by s.name, u.id;
 -- Ожидается: 10 строк «как есть». Почему не 9? Посмотрите на severity внимательно.
 -- ---------------------------------------------------------------------
 -- Задача 6
+select s.name, e.severity, count(e.id) as cnt
+from unit u
+join event e
+on u.id = e.unit_id
+join station s 
+on u.station_id = s.id
+group by s.name, e.severity;
+
+
 
 
 
